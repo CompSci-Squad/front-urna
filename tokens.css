@@ -1,0 +1,250 @@
+/* ============================================================
+   Verdant Design System — canonical tokens
+   Imported by every UI kit, slide template, and preview card.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* ---------- Raw palette ---------- */
+  /* Lime — brand signal. Only used where it carries meaning. */
+  --lime-50:  #F7FEE7;
+  --lime-100: #ECFCCB;
+  --lime-200: #D9F99D;
+  --lime-300: #BEF264;
+  --lime-400: #A3E635;
+  --lime-500: #84CC16;   /* brand */
+  --lime-600: #65A30D;   /* hover / pressed on lime */
+  --lime-700: #4D7C0F;
+  --lime-800: #3F6212;
+  --lime-900: #365314;
+
+  /* Neutrals — near-black through near-white. Warm-cool neutral (very slight green cast). */
+  --neutral-0:   #FFFFFF;
+  --neutral-50:  #FAFAF9;
+  --neutral-100: #F4F4F3;
+  --neutral-200: #E7E7E5;
+  --neutral-300: #D4D4D2;
+  --neutral-400: #A3A3A0;
+  --neutral-500: #78787A;
+  --neutral-600: #525356;
+  --neutral-700: #3A3B3E;
+  --neutral-800: #26272A;
+  --neutral-900: #18191C;
+  --neutral-950: #0E0F11;
+
+  /* Semantic hues (desaturated — we are a tool, not a dashboard toy) */
+  --amber-500: #D97706;
+  --amber-400: #F59E0B;
+  --red-500:   #DC2626;
+  --red-400:   #EF4444;
+  --blue-500:  #2563EB;
+  --blue-400:  #3B82F6;
+
+  /* ---------- Semantic colors — DARK (default) ---------- */
+  --bg-canvas:      var(--neutral-950);
+  --bg-surface:     var(--neutral-900);
+  --bg-surface-2:   var(--neutral-800);
+  --bg-hover:       rgba(255, 255, 255, 0.04);
+  --bg-press:       rgba(255, 255, 255, 0.08);
+
+  --fg-default:     #ECECEA;
+  --fg-muted:       #A3A3A0;
+  --fg-subtle:      #78787A;
+  --fg-on-lime:     var(--neutral-950);   /* lime is light — near-black on top */
+
+  --border-subtle:  rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.10);
+  --border-strong:  rgba(255, 255, 255, 0.18);
+
+  --accent:         var(--lime-500);
+  --accent-hover:   var(--lime-600);
+  --accent-press:   var(--lime-700);
+
+  --status-ok:      var(--lime-500);
+  --status-warn:    var(--amber-400);
+  --status-crit:    var(--red-400);
+  --status-info:    var(--blue-400);
+
+  --focus-ring:     var(--lime-500);
+
+  /* ---------- Typography ---------- */
+  --font-display: 'Inter Tight', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-body:    'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Type scale — tight, restrained */
+  --text-xs:   11px;   /* micro labels, caption */
+  --text-sm:   12px;   /* dense tables, tags */
+  --text-base: 14px;   /* product body */
+  --text-md:   15px;   /* preferred product body */
+  --text-lg:   16px;
+  --text-xl:   18px;
+  --text-2xl:  22px;
+  --text-3xl:  28px;
+  --text-4xl:  36px;
+  --text-5xl:  48px;
+  --text-6xl:  64px;
+
+  --leading-tight:   1.15;
+  --leading-snug:    1.3;
+  --leading-normal:  1.5;
+  --leading-loose:   1.65;
+
+  --tracking-tight:  -0.02em;
+  --tracking-snug:   -0.01em;
+  --tracking-normal: 0;
+  --tracking-wide:   0.08em;   /* eyebrow labels */
+
+  /* ---------- Spacing (4px base, strict) ---------- */
+  --s-1:  4px;
+  --s-2:  8px;
+  --s-3:  12px;
+  --s-4:  16px;
+  --s-5:  20px;
+  --s-6:  24px;
+  --s-8:  32px;
+  --s-10: 40px;
+  --s-12: 48px;
+  --s-16: 64px;
+  --s-24: 96px;
+
+  /* ---------- Radius ---------- */
+  --radius-sm:   4px;   /* inputs, small buttons */
+  --radius-md:   6px;   /* cards, panels */
+  --radius-lg:   8px;   /* modals, popovers */
+  --radius-pill: 999px;
+
+  /* ---------- Shadows (restrained) ---------- */
+  --shadow-pop:   0 4px 12px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-modal: 0 20px 48px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.4);
+
+  /* ---------- Motion ---------- */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur-med:  200ms;
+  --dur-slow: 320ms;
+
+  /* ---------- Layout constants ---------- */
+  --sidebar-w: 240px;
+  --topnav-h:  48px;
+  --maxw-app:  1440px;
+  --maxw-mkt:  1120px;
+}
+
+/* ---------- Light mode mirror ---------- */
+[data-theme="light"] {
+  --bg-canvas:      var(--neutral-50);
+  --bg-surface:     var(--neutral-0);
+  --bg-surface-2:   var(--neutral-100);
+  --bg-hover:       rgba(0, 0, 0, 0.04);
+  --bg-press:       rgba(0, 0, 0, 0.08);
+
+  --fg-default:     var(--neutral-900);
+  --fg-muted:       var(--neutral-600);
+  --fg-subtle:      var(--neutral-500);
+
+  --border-subtle:  rgba(0, 0, 0, 0.06);
+  --border-default: rgba(0, 0, 0, 0.10);
+  --border-strong:  rgba(0, 0, 0, 0.18);
+
+  --shadow-pop:   0 4px 12px rgba(15, 23, 18, 0.08), 0 1px 2px rgba(15, 23, 18, 0.06);
+  --shadow-modal: 0 20px 48px rgba(15, 23, 18, 0.12), 0 4px 12px rgba(15, 23, 18, 0.08);
+}
+
+/* ============================================================
+   Semantic type styles — use these in product code.
+   ============================================================ */
+
+.h-display {
+  font-family: var(--font-display);
+  font-size: var(--text-6xl);
+  font-weight: 700;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--fg-default);
+}
+.h1 {
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  font-weight: 700;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--fg-default);
+}
+.h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: 600;
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-tight);
+  color: var(--fg-default);
+}
+.h3 {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-snug);
+  color: var(--fg-default);
+}
+.h4 {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: var(--leading-snug);
+  color: var(--fg-default);
+}
+.p, p {
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  font-weight: 400;
+  line-height: var(--leading-normal);
+  color: var(--fg-default);
+}
+.p-muted {
+  color: var(--fg-muted);
+}
+.lead {
+  font-family: var(--font-body);
+  font-size: var(--text-xl);
+  font-weight: 400;
+  line-height: var(--leading-normal);
+  color: var(--fg-muted);
+}
+.small, small {
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+.eyebrow {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--fg-muted);
+}
+.code, code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  font-weight: 500;
+  color: var(--fg-default);
+  background: var(--bg-surface-2);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+.kbd, kbd {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--fg-muted);
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-default);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  padding: 1px 5px;
+  min-width: 18px;
+  display: inline-block;
+  text-align: center;
+}
