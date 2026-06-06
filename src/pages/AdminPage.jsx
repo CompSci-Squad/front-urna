@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import AdminPanel from '../components/AdminPanel'
 import AdminModal from '../components/AdminModal'
 import {
@@ -19,9 +19,22 @@ import {
   getVoteReceiptPdf,
   getAdminState,
   getAdminVoters,
-  relayLegacy
+  relayLegacy,
+  getElection
 } from '../services/apiService'
 import { computeCommitment, buildMerkleTree } from '../utils/zk'
+
+const NUMERIC_STATE_MAP = { 0: 'PENDING', 1: 'OPEN', 2: 'FINISHED' }
+
+function getElectionState(details) {
+  if (!details) return null
+  const raw = details.state ?? details.status ?? details.currentState ?? details.electionState ?? null
+  if (raw === null || raw === undefined) return null
+  if (typeof raw === 'number' || (typeof raw === 'string' && /^\d+$/.test(raw))) {
+    return NUMERIC_STATE_MAP[Number(raw)] ?? null
+  }
+  return String(raw).toUpperCase()
+}
 
 const INITIAL_CANDIDATE_FORM = {
   num: '',
@@ -31,12 +44,13 @@ const INITIAL_CANDIDATE_FORM = {
   race: ''
 }
 
-function AdminPage({ races, setRaces, electionAddress, setElectionList }) {
+function AdminPage({ races, setRaces, electionAddress, electionDetails, setElectionAddress, setElectionDetails, setElectionList }) {
   const [adminFormVisible, setAdminFormVisible] = useState(false)
   const [candidateForm, setCandidateForm] = useState(INITIAL_CANDIDATE_FORM)
   const [adminModalVisible, setAdminModalVisible] = useState(false)
   const [adminModalTitle, setAdminModalTitle] = useState('')
   const [adminModalContent, setAdminModalContent] = useState(null)
+  const [adminModalChildren, setAdminModalChildren] = useState(null)
   const [actionDialogOpen, setActionDialogOpen] = useState(false)
   const [actionDialogTitle, setActionDialogTitle] = useState('')
   const [actionDialogFields, setActionDialogFields] = useState([])
@@ -46,6 +60,11 @@ function AdminPage({ races, setRaces, electionAddress, setElectionList }) {
   const [backendRaces, setBackendRaces] = useState(null)
   const [backendCandidates, setBackendCandidates] = useState([])
   const [loadingCandidates, setLoadingCandidates] = useState(false)
+  const [votersDialogOpen, setVotersDialogOpen] = useState(false)
+  const [votersCpfText, setVotersCpfText] = useState('')
+  const [votersCsvInfo, setVotersCsvInfo] = useState(null)
+  const [votersSubmitting, setVotersSubmitting] = useState(false)
+  const csvInputRef = useRef(null)
 
   useEffect(() => {
     if (!electionAddress) {
@@ -109,9 +128,27 @@ function AdminPage({ races, setRaces, electionAddress, setElectionList }) {
     }
   }
 
+  async function reloadElectionDetails() {
+    if (!electionAddress) return
+    try {
+      const details = await getElection(electionAddress)
+      setElectionDetails(details)
+    } catch (err) {
+      console.warn('Failed to reload election details:', err)
+    }
+  }
+
   const showAdminModal = (title, content) => {
     setAdminModalTitle(title)
     setAdminModalContent(content)
+    setAdminModalChildren(null)
+    setAdminModalVisible(true)
+  }
+
+  const showAdminModalJsx = (title, jsx) => {
+    setAdminModalTitle(title)
+    setAdminModalContent(null)
+    setAdminModalChildren(jsx)
     setAdminModalVisible(true)
   }
 
@@ -242,7 +279,13 @@ function AdminPage({ races, setRaces, electionAddress, setElectionList }) {
         })
 
         await createCandidateApi(electionAddress, raceId, candidateForm)
-        showAdminModal('Sucesso', 'Candidato cadastrado com sucesso')
+        showAdminModalJsx('Candidato cadastrado', (
+          <div className="admin-success-modal">
+            <div className="admin-success-row"><span>Número</span><strong>{candidateForm.num}</strong></div>
+            <div className="admin-success-row"><span>Nome</span><strong>{candidateForm.name}</strong></div>
+            <div className="admin-success-row"><span>Partido</span><span>{candidateForm.party}</span></div>
+          </div>
+        ))
         setCandidateForm(INITIAL_CANDIDATE_FORM)
         setAdminFormVisible(false)
         // Reload candidates from backend
@@ -299,7 +342,7 @@ function AdminPage({ races, setRaces, electionAddress, setElectionList }) {
       submitLabel: 'Criar',
       fields: [
         { name: 'name', label: 'Nome da eleição', placeholder: 'Ex: Eleição 2026' },
-        { name: 'description', label: 'Descrição', type: 'textarea', placeholder: 'Descrição opcional' }
+        { name: 'description', label: 'Descrição', type: 'textarea', placeholder: 'Descrição' }
       ],
       initialValues: { name: '', description: '' },
       onSubmit: async (form) => {
@@ -309,7 +352,20 @@ function AdminPage({ races, setRaces, electionAddress, setElectionList }) {
         const res = await createElection({ name: form.name, description: form.description || '' })
         const elections = await listElections()
         setElectionList(elections)
-        showAdminModal('Eleição criada', JSON.stringify(res, null, 2))
+        if (res?.address) {
+          setElectionAddress(res.address)
+        } else if (elections.length > 0) {
+          setElectionAddress(elections[elections.length - 1].address)
+        }
+        const addr = res?.address ?? ''
+        showAdminModalJsx('Eleição criada', (
+          <div className="admin-success-modal">
+            <div className="admin-success-row"><span>Nome</span><strong>{res?.name ?? form.name}</strong></div>
+            {addr && <div className="admin-success-row"><span>Endereço</span><code className="admin-success-code">{addr.slice(0, 10)}...{addr.slice(-8)}</code></div>}
+            <div className="admin-success-row"><span>Estado</span><span className="election-state-badge state-pending">Pendente</span></div>
+            <p className="admin-success-hint">Próximo passo: crie as corridas e cadastre os candidatos.</p>
+          </div>
+        ))
       }
     })
   }
@@ -333,7 +389,15 @@ function AdminPage({ races, setRaces, electionAddress, setElectionList }) {
           throw new Error('Selecione o novo estado da eleição.')
         }
         const res = await patchElection(electionAddress, { state: form.state })
-        showAdminModal('Eleição atualizada', JSON.stringify(res, null, 2))
+        await reloadElectionDetails()
+        const stateLabels = { OPEN: 'Aberta', PENDING: 'Pendente', FINISHED: 'Encerrada' }
+        const stateClasses = { OPEN: 'state-open', PENDING: 'state-pending', FINISHED: 'state-finished' }
+        showAdminModalJsx('Eleição atualizada', (
+          <div className="admin-success-modal">
+            <div className="admin-success-row"><span>Novo estado</span><span className={`election-state-badge ${stateClasses[form.state] ?? 'state-pending'}`}>{stateLabels[form.state] ?? form.state}</span></div>
+            <p className="admin-success-hint">O estado da eleição foi atualizado com sucesso.</p>
+          </div>
+        ))
       }
     })
   }
@@ -352,7 +416,14 @@ function AdminPage({ races, setRaces, electionAddress, setElectionList }) {
           throw new Error('Informe o nome da corrida.')
         }
         const res = await createRace(electionAddress, { name: form.name })
-        showAdminModal('Corrida criada', JSON.stringify(res, null, 2))
+        await reloadCandidates()
+        showAdminModalJsx('Corrida criada', (
+          <div className="admin-success-modal">
+            <div className="admin-success-row"><span>Nome</span><strong>{res?.name ?? form.name}</strong></div>
+            {res?.id && <div className="admin-success-row"><span>ID</span><code className="admin-success-code">{res.id}</code></div>}
+            <p className="admin-success-hint">Próximo passo: cadastre os candidatos para esta corrida.</p>
+          </div>
+        ))
       }
     })
   }
@@ -389,6 +460,9 @@ function AdminPage({ races, setRaces, electionAddress, setElectionList }) {
 
   const handleGetRdv = async () => {
     if (!electionAddress) return showAdminModal('Erro', 'Selecione uma eleição primeiro.')
+    if (getElectionState(electionDetails) !== 'FINISHED') {
+      return showAdminModal('RDV indisponível', 'O RDV só está disponível após o encerramento da eleição.')
+    }
     try {
       const data = await getRdv(electionAddress)
       showAdminModal('Registro Digital de Voto (RDV)', JSON.stringify(data, null, 2))
@@ -419,42 +493,62 @@ function AdminPage({ races, setRaces, electionAddress, setElectionList }) {
 
   const handleRegisterVoters = () => {
     if (!electionAddress) return showAdminModal('Erro', 'Selecione uma eleição primeiro.')
-    openActionDialog({
-      title: 'Registrar votantes',
-      submitLabel: 'Registrar',
-      fields: [
-        {
-          name: 'cpfs',
-          label: 'CPFs separados por vírgula, nova linha ou espaço',
-          type: 'textarea',
-          placeholder: '12345678900, 98765432100'
-        }
-      ],
-      initialValues: { cpfs: '' },
-      onSubmit: async (form) => {
-        const cpfs = form.cpfs
-          .split(/[\s,;]+/)
-          .map((item) => item.replace(/\D/g, ''))
-          .filter(Boolean)
+    setVotersCpfText('')
+    setVotersCsvInfo(null)
+    setVotersDialogOpen(true)
+  }
 
-        if (cpfs.length === 0) {
-          throw new Error('Nenhum CPF válido informado.')
-        }
+  const handleCsvImport = (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const text = e.target.result
+      const cpfs = text
+        .split(/[\r\n]+/)
+        .map((line) => line.replace(/\D/g, ''))
+        .filter((c) => c.length === 11)
+      setVotersCpfText(cpfs.join('\n'))
+      setVotersCsvInfo({ filename: file.name, count: cpfs.length })
+    }
+    reader.readAsText(file)
+    event.target.value = ''
+  }
 
-        if (cpfs.length > 16) {
-          throw new Error('Máximo de 16 CPFs permitidos para o Merkle tree.')
-        }
+  const handleVotersSubmit = async () => {
+    const cpfs = votersCpfText
+      .split(/[\s,;]+/)
+      .map((item) => item.replace(/\D/g, ''))
+      .filter(Boolean)
 
-        const commitments = await Promise.all(cpfs.map(computeCommitment))
-        const { root } = await buildMerkleTree(commitments)
-        const payload = { hashes: commitments, merkleRoot: root }
-        const res = await registerVoters(electionAddress, payload)
-        showAdminModal(
-          'Registro de votantes',
-          JSON.stringify({ count: commitments.length, merkleRoot: root, response: res }, null, 2)
-        )
-      }
-    })
+    if (cpfs.length === 0) {
+      return showAdminModal('Erro', 'Nenhum CPF válido informado.')
+    }
+    if (cpfs.length > 16) {
+      return showAdminModal('Erro', 'Máximo de 16 CPFs permitidos para o Merkle tree.')
+    }
+
+    setVotersSubmitting(true)
+    try {
+      const commitments = await Promise.all(cpfs.map(computeCommitment))
+      const { root } = await buildMerkleTree(commitments)
+      const payload = { hashes: commitments, merkleRoot: root }
+      const res = await registerVoters(electionAddress, payload)
+      setVotersDialogOpen(false)
+      setVotersCpfText('')
+      setVotersCsvInfo(null)
+      showAdminModalJsx('Votantes registrados', (
+        <div className="admin-success-modal">
+          <div className="admin-success-row"><span>Eleitores registrados</span><strong>{commitments.length}</strong></div>
+          <div className="admin-success-row"><span>Merkle root</span><code className="admin-success-code">{root.slice(0, 10)}...{root.slice(-8)}</code></div>
+          <p className="admin-success-hint">Os eleitores foram registrados com sucesso na eleição.</p>
+        </div>
+      ))
+    } catch (err) {
+      showAdminModal('Erro ao registrar votantes', err.message || String(err))
+    } finally {
+      setVotersSubmitting(false)
+    }
   }
 
   const handleGetVoteReceiptPdf = () => {
@@ -581,6 +675,10 @@ function AdminPage({ races, setRaces, electionAddress, setElectionList }) {
         handleAddCandidate={handleAddCandidate}
         handleDeleteCandidate={handleDeleteCandidate}
         actionGroups={actionGroups}
+        electionDetails={electionDetails}
+        electionAddress={electionAddress}
+        backendRaces={backendRaces}
+        backendCandidates={backendCandidates}
       />
 
       <AdminModal
@@ -588,7 +686,64 @@ function AdminPage({ races, setRaces, electionAddress, setElectionList }) {
         title={adminModalTitle}
         content={adminModalContent}
         onClose={() => setAdminModalVisible(false)}
-      />
+      >
+        {adminModalChildren}
+      </AdminModal>
+
+      {votersDialogOpen && (
+        <div className="modal-backdrop" onClick={() => setVotersDialogOpen(false)}>
+          <div className="candidate-form-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h2 className="modal-title">Registrar votantes</h2>
+            </div>
+            <div className="candidate-form-body">
+              <div className="voters-csv-toolbar">
+                <span className="voters-csv-label">Cole os CPFs abaixo ou importe um arquivo .csv</span>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => csvInputRef.current?.click()}
+                >
+                  Importar CSV
+                </button>
+                <input
+                  ref={csvInputRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  style={{ display: 'none' }}
+                  onChange={handleCsvImport}
+                />
+              </div>
+
+              {votersCsvInfo && (
+                <div className="voters-csv-info">
+                  {votersCsvInfo.count} CPF{votersCsvInfo.count !== 1 ? 's' : ''} encontrado{votersCsvInfo.count !== 1 ? 's' : ''} em <strong>{votersCsvInfo.filename}</strong>
+                </div>
+              )}
+
+              <div className="candidate-form-section">
+                <label className="candidate-field-label" htmlFor="cpfs-textarea">
+                  CPFs <span className="candidate-field-optional">um por linha</span>
+                </label>
+                <textarea
+                  id="cpfs-textarea"
+                  className="candidate-field-input"
+                  style={{ height: 160, resize: 'vertical', padding: '10px 12px', lineHeight: 1.6 }}
+                  placeholder={'12345678900\n98765432100\n11122233344'}
+                  value={votersCpfText}
+                  onChange={(e) => { setVotersCpfText(e.target.value); setVotersCsvInfo(null) }}
+                />
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="btn btn-ghost" onClick={() => setVotersDialogOpen(false)}>Cancelar</button>
+              <button type="button" className="btn btn-primary" onClick={handleVotersSubmit} disabled={votersSubmitting}>
+                {votersSubmitting ? 'Registrando...' : 'Registrar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <AdminModal
         open={actionDialogOpen}

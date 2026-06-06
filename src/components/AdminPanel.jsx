@@ -1,11 +1,36 @@
 import React from 'react'
+import { Vote, LayoutList, Users, Search, FileText, Settings, UserCircle } from 'lucide-react'
 
 const GROUP_ICONS = {
-  'Eleição': '🗳️',
-  'Corridas': '🏛️',
-  'Votantes': '👥',
-  'Auditoria': '🔍',
-  'Recibo': '📄'
+  'Eleição': <Vote size={16} />,
+  'Corridas': <LayoutList size={16} />,
+  'Votantes': <Users size={16} />,
+  'Auditoria': <Search size={16} />,
+  'Recibo': <FileText size={16} />
+}
+
+const STATE_LABELS = {
+  OPEN: 'Aberta',
+  PENDING: 'Pendente',
+  FINISHED: 'Encerrada'
+}
+
+const STATE_CLASSES = {
+  OPEN: 'state-open',
+  PENDING: 'state-pending',
+  FINISHED: 'state-finished'
+}
+
+const NUMERIC_STATE_MAP = { 0: 'PENDING', 1: 'OPEN', 2: 'FINISHED' }
+
+function getElectionState(electionDetails) {
+  if (!electionDetails) return null
+  const raw = electionDetails.state ?? electionDetails.status ?? electionDetails.currentState ?? electionDetails.electionState ?? null
+  if (raw === null || raw === undefined) return null
+  if (typeof raw === 'number' || (typeof raw === 'string' && /^\d+$/.test(raw))) {
+    return NUMERIC_STATE_MAP[Number(raw)] ?? null
+  }
+  return String(raw).toUpperCase()
 }
 
 function AdminPanel({
@@ -17,8 +42,13 @@ function AdminPanel({
   setCandidateForm,
   handleAddCandidate,
   handleDeleteCandidate,
-  actionGroups
+  actionGroups,
+  electionDetails,
+  electionAddress,
+  backendRaces,
+  backendCandidates
 }) {
+  const electionState = getElectionState(electionDetails)
   return (
     <section className="admin-page">
       <div className="page-head">
@@ -30,7 +60,7 @@ function AdminPanel({
           {(actionGroups || []).map((group) => (
             <div key={group.label} className="sidebar-group">
               <div className="sidebar-group-title">
-                <span className="sidebar-group-icon">{GROUP_ICONS[group.label] ?? '⚙️'}</span>
+                <span className="sidebar-group-icon">{GROUP_ICONS[group.label] ?? <Settings size={16} />}</span>
                 {group.label}
               </div>
               {group.actions.map((action) => (
@@ -46,6 +76,59 @@ function AdminPanel({
           ))}
         </aside>
         <div className="admin-main">
+
+          <div className="admin-overview">
+            {!electionAddress ? (
+              <div className="election-card election-card--empty">
+                <Vote size={32} color="var(--fg-muted)" />
+                <p style={{ margin: '8px 0 0', color: 'var(--fg-muted)', fontSize: 14 }}>
+                  Nenhuma eleição selecionada. Crie uma eleição pela sidebar.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="election-card">
+                  <div className="election-card-header">
+                    <div>
+                      <div className="election-card-name">
+                        {electionDetails?.name ?? 'Eleição'}
+                      </div>
+                      <div className="election-card-addr">
+                        {electionAddress?.slice(0, 10)}...{electionAddress?.slice(-8)}
+                      </div>
+                    </div>
+                    <span className={`election-state-badge ${STATE_CLASSES[electionState] ?? 'state-pending'}`}>
+                      {STATE_LABELS[electionState] ?? electionState ?? 'Pendente'}
+                    </span>
+                  </div>
+                </div>
+
+                {backendRaces && backendRaces.length > 0 && (
+                  <div className="race-cards">
+                    {backendRaces.map((race) => {
+                      const count = (backendCandidates || []).filter((c) => c.raceId === race.id).length
+                      return (
+                        <div key={race.id} className="race-card">
+                          <span className="race-card-icon"><LayoutList size={16} /></span>
+                          <div className="race-card-name">{race.label || race.name}</div>
+                          <div className="race-card-count">
+                            {count} {count === 1 ? 'candidato' : 'candidatos'}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {backendRaces && backendRaces.length === 0 && (
+                  <div className="race-cards-empty">
+                    Nenhuma corrida cadastrada ainda. Use a sidebar para criar corridas.
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
       <div className="admin-grid">
         <div className="stats-card admin-panel">
           <div className="admin-panel-header">
@@ -70,7 +153,7 @@ function AdminPanel({
             if (!hasCandidates) {
               return (
                 <div className="empty-state">
-                  <div style={{ fontSize: 40, marginBottom: 12 }}>🗳️</div>
+                  <div style={{ marginBottom: 12, color: 'var(--fg-muted)' }}><Vote size={40} /></div>
                   <p style={{ margin: '0 0 6px', fontWeight: 600, color: 'var(--fg-default)' }}>
                     Nenhum candidato cadastrado ainda.
                   </p>
@@ -139,25 +222,34 @@ function AdminPanel({
 
         {adminFormVisible && (
           <div className="modal-backdrop" onClick={() => setAdminFormVisible(false)}>
-            <form className="modal admin-form-new" onClick={(event) => event.stopPropagation()} onSubmit={handleAddCandidate}>
-              <div className="form-header">
-                <h2>Adicionar Candidato</h2>
-                <p className="form-subtitle">Preencha os dados abaixo para cadastrar um novo candidato</p>
+            <form className="candidate-form-modal" onClick={(event) => event.stopPropagation()} onSubmit={handleAddCandidate}>
+              <div className="modal-head">
+                <h2 className="modal-title">Adicionar candidato</h2>
               </div>
 
-              <div className="form-grid">
-                <div className="form-group form-group-full">
-                  <label htmlFor="cargo" className="form-label">
-                    <span className="label-icon">📋</span>
-                    Cargo
-                  </label>
+              <div className="candidate-form-body">
+                <div className="candidate-form-section">
+                  <label className="candidate-field-label" htmlFor="nome">Nome completo</label>
+                  <input
+                    id="nome"
+                    type="text"
+                    placeholder="Ex: João da Silva"
+                    value={candidateForm.name}
+                    onChange={(event) => setCandidateForm((prev) => ({ ...prev, name: event.target.value }))}
+                    className="candidate-field-input"
+                    required
+                  />
+                </div>
+
+                <div className="candidate-form-section">
+                  <label className="candidate-field-label" htmlFor="cargo">Cargo</label>
                   <select
                     id="cargo"
                     value={candidateForm.race}
                     onChange={(event) => setCandidateForm((prev) => ({ ...prev, race: event.target.value }))}
-                    className="form-select"
+                    className="candidate-field-input"
                     required>
-                    <option value="">-- Selecione um cargo --</option>
+                    <option value="">Selecione um cargo</option>
                     {races && Array.isArray(races) && races.length > 0 && races.map((race) => (
                       <option key={race.id} value={race.id}>
                         {race.label || race.name || String(race.id)}
@@ -166,59 +258,39 @@ function AdminPanel({
                   </select>
                 </div>
 
-                <div className="form-group">
-                  <label htmlFor="numero" className="form-label">
-                    <span className="label-icon">🔢</span>
-                    Número
-                  </label>
-                  <input
-                    id="numero"
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="Ex: 1001"
-                    value={candidateForm.num}
-                    onChange={(event) => setCandidateForm((prev) => ({ ...prev, num: event.target.value.replace(/\D/g, '') }))}
-                    className="form-input"
-                    required
-                  />
+                <div className="candidate-form-row">
+                  <div className="candidate-form-section">
+                    <label className="candidate-field-label" htmlFor="numero">Número</label>
+                    <input
+                      id="numero"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="Ex: 42"
+                      value={candidateForm.num}
+                      onChange={(event) => setCandidateForm((prev) => ({ ...prev, num: event.target.value.replace(/\D/g, '') }))}
+                      className="candidate-field-input"
+                      required
+                    />
+                  </div>
+
+                  <div className="candidate-form-section">
+                    <label className="candidate-field-label" htmlFor="partido">Partido / Sigla</label>
+                    <input
+                      id="partido"
+                      type="text"
+                      placeholder="Ex: PD"
+                      value={candidateForm.party}
+                      onChange={(event) => setCandidateForm((prev) => ({ ...prev, party: event.target.value }))}
+                      className="candidate-field-input"
+                      required
+                    />
+                  </div>
                 </div>
 
-                <div className="form-group">
-                  <label htmlFor="partido" className="form-label">
-                    <span className="label-icon">🏛️</span>
-                    Partido
-                  </label>
-                  <input
-                    id="partido"
-                    type="text"
-                    placeholder="Ex: PD"
-                    value={candidateForm.party}
-                    onChange={(event) => setCandidateForm((prev) => ({ ...prev, party: event.target.value }))}
-                    className="form-input"
-                    required
-                  />
-                </div>
-
-                <div className="form-group form-group-full">
-                  <label htmlFor="nome" className="form-label">
-                    <span className="label-icon">👤</span>
-                    Nome Completo
-                  </label>
-                  <input
-                    id="nome"
-                    type="text"
-                    placeholder="Ex: João da Silva"
-                    value={candidateForm.name}
-                    onChange={(event) => setCandidateForm((prev) => ({ ...prev, name: event.target.value }))}
-                    className="form-input"
-                    required
-                  />
-                </div>
-
-                <div className="form-group form-group-full">
-                  <label htmlFor="foto" className="form-label">
-                    <span className="label-icon">📸</span>
-                    URL da Foto (opcional)
+                <div className="candidate-form-section">
+                  <label className="candidate-field-label" htmlFor="foto">
+                    Foto
+                    <span className="candidate-field-optional">opcional</span>
                   </label>
                   <input
                     id="foto"
@@ -226,18 +298,14 @@ function AdminPanel({
                     placeholder="https://exemplo.com/foto.jpg"
                     value={candidateForm.photo}
                     onChange={(event) => setCandidateForm((prev) => ({ ...prev, photo: event.target.value }))}
-                    className="form-input"
+                    className="candidate-field-input"
                   />
                 </div>
               </div>
 
               <div className="modal-actions">
-                <button type="button" className="btn btn-secondary" onClick={() => setAdminFormVisible(false)}>
-                  Cancelar
-                </button>
-                <button type="submit" className="btn btn-primary btn-lg">
-                  Salvar Candidato
-                </button>
+                <button type="button" className="btn btn-ghost" onClick={() => setAdminFormVisible(false)}>Cancelar</button>
+                <button type="submit" className="btn btn-primary">Salvar candidato</button>
               </div>
             </form>
           </div>

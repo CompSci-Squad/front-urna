@@ -1,90 +1,76 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import ResultsView from '../components/ResultsPage'
 import { getResults } from '../services/apiService'
 
+const REFRESH_INTERVAL = 15000
+
+function buildRaceData(snapshot) {
+  const candidates = (snapshot.candidates ?? []).map((c) => ({
+    num: String(c.number),
+    name: c.name,
+    party: c.party,
+    votes: Number(c.voteCount ?? 0)
+  })).sort((a, b) => b.votes - a.votes)
+
+  const total = candidates.reduce((s, c) => s + c.votes, 0)
+    + Number(snapshot.blankVotes || 0)
+    + Number(snapshot.nullVotes || 0)
+
+  return {
+    id: snapshot.raceId,
+    label: snapshot.name ?? snapshot.label ?? `Corrida ${snapshot.raceId}`,
+    candidates,
+    blankVotes: Number(snapshot.blankVotes || 0),
+    nullVotes: Number(snapshot.nullVotes || 0),
+    validVotes: candidates.reduce((s, c) => s + c.votes, 0),
+    totalVotes: total
+  }
+}
+
 function ResultsPage({ races, electionAddress }) {
-  const [resultsRaceIdx, setResultsRaceIdx] = useState(0)
-  const [backendResults, setBackendResults] = useState(null)
-  const [backendLoading, setBackendLoading] = useState(false)
-  const [backendError, setBackendError] = useState('')
+  const [raceCards, setRaceCards] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [lastUpdated, setLastUpdated] = useState(null)
+
+  async function loadResults() {
+    if (!electionAddress) return
+    setLoading(true)
+    setError('')
+    try {
+      const results = await getResults(electionAddress)
+      const snapshots = (results?.snapshots ?? []).filter(
+        (s) => !!(s.name || s.label)
+      )
+      setRaceCards(snapshots.map(buildRaceData))
+      setLastUpdated(new Date())
+    } catch (err) {
+      console.warn('Failed to load results:', err)
+      setError(err.message || 'Falha ao carregar apuração.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (!electionAddress) {
-      setBackendResults(null)
-      setBackendError('')
+      setRaceCards([])
+      setError('')
+      setLastUpdated(null)
       return
     }
-
-    async function loadResults() {
-      setBackendLoading(true)
-      setBackendError('')
-      try {
-        const results = await getResults(electionAddress)
-        setBackendResults(results)
-      } catch (error) {
-        console.warn('Failed to load results:', error)
-        setBackendResults(null)
-        setBackendError(error.message || 'Falha ao carregar apuração.')
-      } finally {
-        setBackendLoading(false)
-      }
-    }
-
     loadResults()
+    const interval = setInterval(loadResults, REFRESH_INTERVAL)
+    return () => clearInterval(interval)
   }, [electionAddress])
-
-  const backendRaceData = backendResults?.snapshots?.find(
-    (snapshot) => Number(snapshot.raceId) === resultsRaceIdx
-  )
-
-  const resultRace = backendRaceData
-    ? {
-        ...races[resultsRaceIdx],
-        label: backendRaceData.name,
-        candidates: backendRaceData.candidates.map((candidate) => ({
-          num: String(candidate.number),
-          name: candidate.name,
-          party: candidate.party
-        })),
-        votes: {
-          ...Object.fromEntries(
-            backendRaceData.candidates.map((candidate) => [
-              String(candidate.number),
-              Number(candidate.voteCount)
-            ])
-          ),
-          BRANCO: Number(backendRaceData.blankVotes || 0),
-          NULO: Number(backendRaceData.nullVotes || 0)
-        }
-      }
-    : races[resultsRaceIdx]
-
-  const resultVotes = resultRace?.votes ?? {}
-  const totalResultVotes = Object.values(resultVotes || {}).reduce((sum, value) => sum + (value || 0), 0)
-  const resultValidVotes = totalResultVotes - (resultVotes.BRANCO || 0) - (resultVotes.NULO || 0)
-
-  const hasData = races.length > 0 && !!resultRace
-
-  const sortedResults = useMemo(() => {
-    if (!resultRace?.candidates) return []
-    return [...resultRace.candidates]
-      .map((cand) => ({ ...cand, votes: resultVotes[cand.num] ?? 0 }))
-      .sort((a, b) => b.votes - a.votes)
-  }, [resultRace, resultVotes])
 
   return (
     <ResultsView
-      races={races}
-      resultsRaceIdx={resultsRaceIdx}
-      setResultsRaceIdx={setResultsRaceIdx}
-      resultRace={resultRace}
-      sortedResults={sortedResults}
-      backendLoading={backendLoading}
-      backendError={backendError}
-      totalResultVotes={totalResultVotes}
-      resultValidVotes={resultValidVotes}
-      resultVotes={resultVotes}
-      hasData={hasData}
+      raceCards={raceCards}
+      loading={loading}
+      error={error}
+      lastUpdated={lastUpdated}
+      hasData={raceCards.length > 0}
     />
   )
 }

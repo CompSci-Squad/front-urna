@@ -8,6 +8,7 @@ const VotePage = lazy(() => import('./pages/VotePage'))
 const ResultsPage = lazy(() => import('./pages/ResultsPage'))
 const AdminPage = lazy(() => import('./pages/AdminPage'))
 const FinishPage = lazy(() => import('./pages/FinishPage'))
+const ElectionPickerPage = lazy(() => import('./pages/ElectionPickerPage'))
 
 function App() {
   const [view, setView] = useState('login')
@@ -124,7 +125,7 @@ function App() {
     }
 
     setUser({ role: ROLES.VOTER, cpf })
-    setView('vote')
+    setView('vote-picker')
   }
 
   const handleLogout = () => {
@@ -144,8 +145,15 @@ function App() {
 
   const restartSession = () => {
     setReceipt(null)
-    setView('vote')
+    setElectionAddress(null)
+    setElectionDetails(null)
+    setView('vote-picker')
     setVoterCounter((prev) => prev + 1)
+  }
+
+  const handleVoterSelectElection = (addr) => {
+    setElectionAddress(addr)
+    setView('vote')
   }
 
   if (view === 'login') {
@@ -172,20 +180,28 @@ function App() {
           </div>
         </div>
         <div className="meta">
-          <div className="election-picker">
-            <span>Eleição</span>
-            <select value={electionAddress ?? ''} onChange={(event) => setElectionAddress(event.target.value)}>
-              {electionList.length === 0 ? (
-                <option value="">Nenhuma eleição cadastrada</option>
-              ) : (
-                electionList.map((election) => (
-                  <option key={election.address} value={election.address}>
-                    {election.name}
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
+          {isAdmin && (
+            <div className="election-picker">
+              <span>Eleição</span>
+              <select value={electionAddress ?? ''} onChange={(event) => setElectionAddress(event.target.value)}>
+                {electionList.length === 0 ? (
+                  <option value="">Nenhuma eleição cadastrada</option>
+                ) : (
+                  electionList.map((election) => (
+                    <option key={election.address} value={election.address}>
+                      {election.name}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+          )}
+          {isVoter && electionDetails && (
+            <div className="topbar-election-name">
+              <span>Eleição:</span>
+              <strong>{electionDetails.name}</strong>
+            </div>
+          )}
           {isVoter && <div>Eleitor: <strong>{formattedVoter}</strong></div>}
           <div>Hora: <strong>{time.toLocaleTimeString('pt-BR')}</strong></div>
           <div className={`role-badge ${user.role}`}>{user.role === ROLES.ADMIN ? 'ADMINISTRADOR' : 'ELEITOR'}</div>
@@ -205,6 +221,13 @@ function App() {
       )}
 
       <Suspense fallback={<div className="status-message">Carregando...</div>}>
+        {view === 'vote-picker' && (
+          <ElectionPickerPage
+            userCpf={user?.cpf}
+            onSelectElection={handleVoterSelectElection}
+          />
+        )}
+
         {view === 'vote' && (
           <VotePage
             races={effectiveRaces}
@@ -212,6 +235,7 @@ function App() {
             electionAddress={electionAddress}
             electionDetails={electionDetails}
             formattedVoter={formattedVoter}
+            userCpf={user.cpf}
             onFinish={handleFinish}
           />
         )}
@@ -223,11 +247,14 @@ function App() {
             races={races}
             setRaces={setRaces}
             electionAddress={electionAddress}
+            electionDetails={electionDetails}
+            setElectionAddress={setElectionAddress}
+            setElectionDetails={setElectionDetails}
             setElectionList={setElectionList}
           />
         )}
 
-        {view === 'finish' && <FinishPage receipt={receipt} onRestart={restartSession} />}
+        {view === 'finish' && <FinishPage receipt={receipt} onRestart={restartSession} electionAddress={electionAddress} />}
       </Suspense>
     </div>
   )

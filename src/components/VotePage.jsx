@@ -1,4 +1,5 @@
 import React from 'react'
+import { Search, UserCircle } from 'lucide-react'
 
 function VotePage({
   races,
@@ -41,7 +42,7 @@ function VotePage({
         </div>
         <div className="search-row">
           <button type="button" className="search-icon" aria-label="Pesquisar candidato">
-            🔍
+            <Search size={18} />
           </button>
           <input
             className="search-input"
@@ -66,7 +67,7 @@ function VotePage({
               key={candidate.num}
               className="candidate"
               onClick={() => openConfirmModal(candidate)}>
-              <div className="cand-photo">{candidate.photo ? <img src={candidate.photo} alt={candidate.name} /> : '👤'}</div>
+              <div className="cand-photo">{candidate.photo ? <img src={candidate.photo} alt={candidate.name} /> : <UserCircle size={40} strokeWidth={1.5} />}</div>
               <div className="cand-body">
                 <div className="cand-name">{candidate.name}</div>
                 <div className="cand-meta">

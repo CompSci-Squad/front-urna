@@ -1,20 +1,20 @@
 import { useMemo, useState } from 'react'
+import { Vote } from 'lucide-react'
 import { SPECIAL_VOTES } from '../utils/constants'
 import ConfirmModal from '../components/ConfirmModal'
 import VoteView from '../components/VotePage'
 import { castVote, getVoterProof } from '../services/apiService'
 import { computeCommitment, computeNullifier, buildVoteCircuitInput, generateVoteProof, normalizeCpf } from '../utils/zk'
 
-function VotePage({ races, setRaces, electionAddress, electionDetails, formattedVoter, onFinish }) {
+function VotePage({ races, setRaces, electionAddress, electionDetails, formattedVoter, userCpf, onFinish }) {
   const [raceIdx, setRaceIdx] = useState(0)
   const [ballot, setBallot] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
   const [pendingVote, setPendingVote] = useState(null)
   const [showModal, setShowModal] = useState(false)
   const [verdict, setVerdict] = useState(null)
-  const [cpf, setCpf] = useState('')
-  const [cpfError, setCpfError] = useState('')
   const [statusMessage, setStatusMessage] = useState('')
+  const [statusIsError, setStatusIsError] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const currentRace = races[raceIdx]
@@ -28,11 +28,9 @@ function VotePage({ races, setRaces, electionAddress, electionDetails, formatted
   }, [searchTerm, currentRace])
 
   const openConfirmModal = (vote) => {
-    if (!cpf.trim()) {
-      setCpfError('Informe seu CPF antes de votar.')
-      return
-    }
-    setCpfError('')
+    setVerdict(null)
+    setStatusMessage('')
+    setStatusIsError(false)
     setPendingVote(vote)
     setShowModal(true)
   }
@@ -40,6 +38,7 @@ function VotePage({ races, setRaces, electionAddress, electionDetails, formatted
   const closeConfirmModal = () => {
     setPendingVote(null)
     setShowModal(false)
+    setVerdict(null)
   }
 
   const castSpecialVote = (type) => {
@@ -65,12 +64,12 @@ function VotePage({ races, setRaces, electionAddress, electionDetails, formatted
     if (!pendingVote) return
     setShowModal(false)
     setStatusMessage('')
-    setCpfError('')
+    setStatusIsError(false)
     setLoading(true)
 
     if (electionAddress) {
       try {
-        const normalizedCpf = normalizeCpf(cpf)
+        const normalizedCpf = normalizeCpf(userCpf)
         const commitment = await computeCommitment(normalizedCpf)
         const proofData = await getVoterProof(electionAddress, commitment)
 
@@ -95,7 +94,7 @@ function VotePage({ races, setRaces, electionAddress, electionDetails, formatted
         const { proofArray, pubSignalsArray } = await generateVoteProof(circuitInput)
         console.log('Proof generated:', { proofArray, pubSignalsArray })
 
-        setStatusMessage('Prova gerada com sucesso. Enviando voto ao backend...')
+        setStatusMessage('Enviando voto ao backend...')
         await castVote(electionAddress, {
           raceId: Number(currentRaceId),
           pubSignals: pubSignalsArray,
@@ -143,7 +142,23 @@ function VotePage({ races, setRaces, electionAddress, electionDetails, formatted
         return
       } catch (error) {
         console.error('Vote submission failed:', error)
-        setCpfError(error.message || 'Falha ao registrar o voto.')
+        const msg = error.message || ''
+        let friendly
+        if (/not OPEN|PENDING/i.test(msg)) {
+          friendly = 'A eleição ainda não foi aberta. Aguarde o início oficial.'
+        } else if (/FINISHED|encerrada/i.test(msg)) {
+          friendly = 'A eleição já foi encerrada. Não é possível registrar votos.'
+        } else if (/not included|não cadastrado|not found/i.test(msg)) {
+          friendly = 'Seu CPF não está na lista de votantes desta eleição.'
+        } else if (/nullifier|already used|double/i.test(msg)) {
+          friendly = 'Você já votou nesta eleição.'
+        } else if (/proof|invalid/i.test(msg)) {
+          friendly = 'Erro na geração da prova criptográfica. Tente novamente.'
+        } else {
+          friendly = 'Não foi possível registrar o voto. Tente novamente.'
+        }
+        setStatusMessage(friendly)
+        setStatusIsError(true)
         setVerdict('bad')
         setTimeout(() => setVerdict(null), 1600)
         setLoading(false)
@@ -187,11 +202,6 @@ function VotePage({ races, setRaces, electionAddress, electionDetails, formatted
     }, 1200)
   }
 
-  const cancelVote = () => {
-    setShowModal(false)
-    setVerdict('cancel')
-    setTimeout(() => setVerdict(null), 1200)
-  }
 
   if (!races || races.length === 0) {
     return (
@@ -200,7 +210,7 @@ function VotePage({ races, setRaces, electionAddress, electionDetails, formatted
           <h1 className="page-title">Votação</h1>
         </div>
         <div className="empty-state">
-          <div style={{ fontSize: 40, marginBottom: 12 }}>🗳️</div>
+          <div style={{ marginBottom: 12, color: 'var(--fg-muted)' }}><Vote size={40} /></div>
           <p style={{ margin: '0 0 6px', fontWeight: 600, color: 'var(--fg-default)' }}>
             Nenhuma eleição disponível no momento.
           </p>
@@ -215,22 +225,7 @@ function VotePage({ races, setRaces, electionAddress, electionDetails, formatted
   return (
     <>
       <section className="vote-cpf-box">
-        <label>
-          CPF do eleitor
-          <input
-            type="text"
-            inputMode="numeric"
-            placeholder="00000000000"
-            value={cpf}
-            onChange={(event) => {
-              setCpf(event.target.value.replace(/\D/g, ''))
-              setCpfError('')
-            }}
-            autoComplete="off"
-          />
-        </label>
-        {cpfError && <div className="status-message error">{cpfError}</div>}
-        {statusMessage && <div className="status-message">{statusMessage}</div>}
+        {statusMessage && <div className={`status-message${statusIsError ? ' error' : ''}`}>{statusMessage}</div>}
         {loading && <div className="status-message">Gerando prova e enviando voto...</div>}
       </section>
       <VoteView

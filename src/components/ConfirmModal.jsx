@@ -1,4 +1,5 @@
 import React from 'react'
+import { UserCircle } from 'lucide-react'
 
 function ConfirmModal({ open, vote, currentRace, onClose, onConfirm }) {
   if (!open || !vote) return null
@@ -11,7 +12,7 @@ function ConfirmModal({ open, vote, currentRace, onClose, onConfirm }) {
           <p>Confirme se as informações abaixo correspondem ao seu voto.</p>
         </div>
         <div className="modal-body">
-          <div className="modal-photo">{vote.photo ? <img src={vote.photo} alt={vote.name} /> : '👤'}</div>
+          <div className="modal-photo">{vote.photo ? <img src={vote.photo} alt={vote.name} /> : <UserCircle size={56} strokeWidth={1.5} />}</div>
           <div className="modal-info">
             <h3>{vote.name}</h3>
             <dl>
