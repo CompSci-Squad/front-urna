@@ -2,7 +2,7 @@
 import { ROLES, TEST_CREDENTIALS } from './utils/constants'
 import LoginScreen from './components/LoginScreen'
 import { listElections, getElection, setAdminKey, clearAdminKey, getVoterProof } from './services/apiService'
-import { computeCommitment } from './utils/zk'
+import { computeCommitment, isValidCpf } from './utils/zk'
 
 const VotePage = lazy(() => import('./pages/VotePage'))
 const ResultsPage = lazy(() => import('./pages/ResultsPage'))
@@ -104,6 +104,11 @@ function App() {
       return
     }
 
+    if (!isValidCpf(cpf)) {
+      setLoginError('CPF inválido. Verifique os dígitos informados.')
+      return
+    }
+
     if (activeTab === 'admin') {
       if (!password) {
         setLoginError('Senha obrigatória para login administrador.')
@@ -141,6 +146,10 @@ function App() {
   const handleFinish = (newReceipt) => {
     setReceipt(newReceipt)
     setView('finish')
+    // Marcar que o usuário já votou nesta eleição (para exibir "Já votou" no ElectionPicker)
+    if (user?.cpf && electionAddress) {
+      sessionStorage.setItem(`voted_${user.cpf}_${electionAddress}`, '1')
+    }
   }
 
   const restartSession = () => {
@@ -202,7 +211,7 @@ function App() {
               <strong>{electionDetails.name}</strong>
             </div>
           )}
-          {isVoter && <div>Eleitor: <strong>{formattedVoter}</strong></div>}
+          {isVoter && user?.cpf && <div>Eleitor: <strong>{user.cpf}</strong></div>}
           <div>Hora: <strong>{time.toLocaleTimeString('pt-BR')}</strong></div>
           <div className={`role-badge ${user.role}`}>{user.role === ROLES.ADMIN ? 'ADMINISTRADOR' : 'ELEITOR'}</div>
           <button className="btn btn-ghost" onClick={handleLogout}>Sair</button>
@@ -254,7 +263,7 @@ function App() {
           />
         )}
 
-        {view === 'finish' && <FinishPage receipt={receipt} onRestart={restartSession} electionAddress={electionAddress} />}
+        {view === 'finish' && <FinishPage receipt={receipt} onRestart={restartSession} />}
       </Suspense>
     </div>
   )

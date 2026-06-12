@@ -46,7 +46,8 @@ function AdminPanel({
   electionDetails,
   electionAddress,
   backendRaces,
-  backendCandidates
+  backendCandidates,
+  totalVoters
 }) {
   const electionState = getElectionState(electionDetails)
   return (
@@ -100,6 +101,12 @@ function AdminPanel({
                     <span className={`election-state-badge ${STATE_CLASSES[electionState] ?? 'state-pending'}`}>
                       {STATE_LABELS[electionState] ?? electionState ?? 'Pendente'}
                     </span>
+                  </div>
+                  <div className="election-card-stats">
+                    <div className="election-stat">
+                      <Users size={16} />
+                      <span>{totalVoters} votante{totalVoters !== 1 ? 's' : ''} registrado{totalVoters !== 1 ? 's' : ''}</span>
+                    </div>
                   </div>
                 </div>
 

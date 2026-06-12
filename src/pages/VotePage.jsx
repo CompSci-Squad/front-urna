@@ -128,11 +128,17 @@ function VotePage({ races, setRaces, electionAddress, electionDetails, formatted
             setRaceIdx((prev) => prev + 1)
             setSearchTerm('')
           } else {
+            // Gerar protocolo individual para cada voto
+            const protocols = finalBallot.map((entry, idx) => 
+              `VOTO-${String(getCandidateId(entry.vote)).padStart(3, '0')}-${idx}`
+            )
+            
             onFinish({
               votes: finalBallot,
               time: new Date().toLocaleTimeString('pt-BR'),
-              voter: formattedVoter,
-              protocol: `VOTO-${String(getCandidateId(voteWithNullifier)).padStart(3, '0')}-${raceIdx}`,
+              voter: userCpf,
+              protocol: protocols[protocols.length - 1], // Protocolo do último voto (compatibilidade)
+              protocols: protocols, // Array com protocolo de cada voto
               nullifiers: finalBallot.map((entry) => entry.vote.nullifier).filter(Boolean)
             })
           }
@@ -190,11 +196,17 @@ function VotePage({ races, setRaces, electionAddress, electionDetails, formatted
         setRaceIdx((prev) => prev + 1)
         setSearchTerm('')
       } else {
+        // Gerar protocolo individual para cada voto
+        const protocols = finalBallot.map((entry, idx) => 
+          `VOTO-${String(getCandidateId(entry.vote)).padStart(3, '0')}-${idx}`
+        )
+        
         onFinish({
           votes: finalBallot,
           time: new Date().toLocaleTimeString('pt-BR'),
-          voter: formattedVoter,
-          protocol: `VOTO-${String(getCandidateId(pendingVote)).padStart(3, '0')}-${raceIdx}`
+          voter: userCpf,
+          protocol: protocols[protocols.length - 1], // Protocolo do último voto (compatibilidade)
+          protocols: protocols // Array com protocolo de cada voto
         })
       }
       setPendingVote(null)

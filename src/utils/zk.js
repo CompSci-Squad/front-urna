@@ -23,6 +23,35 @@ export function normalizeCpf(cpf) {
   return String(cpf).replace(/\D/g, '')
 }
 
+export function isValidCpf(cpf) {
+  const clean = normalizeCpf(cpf)
+
+  if (clean.length !== 11) return false
+
+  // CPFs com todos dígitos iguais são inválidos
+  if (/^(\d)\1{10}$/.test(clean)) return false
+
+  // Valida 1º dígito verificador
+  let sum = 0
+  for (let i = 0; i < 9; i++) {
+    sum += parseInt(clean[i]) * (10 - i)
+  }
+  let digit = 11 - (sum % 11)
+  if (digit > 9) digit = 0
+  if (digit !== parseInt(clean[9])) return false
+
+  // Valida 2º dígito verificador
+  sum = 0
+  for (let i = 0; i < 10; i++) {
+    sum += parseInt(clean[i]) * (11 - i)
+  }
+  digit = 11 - (sum % 11)
+  if (digit > 9) digit = 0
+  if (digit !== parseInt(clean[10])) return false
+
+  return true
+}
+
 export async function computeCommitment(cpf) {
   const normalized = normalizeCpf(cpf)
   if (!normalized) {

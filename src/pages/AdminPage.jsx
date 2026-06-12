@@ -22,7 +22,7 @@ import {
   relayLegacy,
   getElection
 } from '../services/apiService'
-import { computeCommitment, buildMerkleTree } from '../utils/zk'
+import { computeCommitment, buildMerkleTree, isValidCpf } from '../utils/zk'
 
 const NUMERIC_STATE_MAP = { 0: 'PENDING', 1: 'OPEN', 2: 'FINISHED' }
 
@@ -64,17 +64,31 @@ function AdminPage({ races, setRaces, electionAddress, electionDetails, setElect
   const [votersCpfText, setVotersCpfText] = useState('')
   const [votersCsvInfo, setVotersCsvInfo] = useState(null)
   const [votersSubmitting, setVotersSubmitting] = useState(false)
+  const [totalVoters, setTotalVoters] = useState(0)
   const csvInputRef = useRef(null)
 
   useEffect(() => {
     if (!electionAddress) {
       setBackendRaces(null)
       setBackendCandidates([])
+      setTotalVoters(0)
       return
     }
 
     reloadCandidates()
+    loadTotalVoters()
   }, [electionAddress])
+
+  async function loadTotalVoters() {
+    if (!electionAddress) return
+    try {
+      const voters = await listVoters(electionAddress)
+      setTotalVoters(voters?.length || 0)
+    } catch (err) {
+      console.warn('Failed to load voters count:', err)
+      setTotalVoters(0)
+    }
+  }
 
   async function reloadCandidates() {
     if (!electionAddress) return
@@ -522,21 +536,74 @@ function AdminPage({ races, setRaces, electionAddress, electionDetails, setElect
       .filter(Boolean)
 
     if (cpfs.length === 0) {
-      return showAdminModal('Erro', 'Nenhum CPF válido informado.')
+      return showAdminModal('Erro', 'Nenhum CPF informado.')
     }
     if (cpfs.length > 16) {
       return showAdminModal('Erro', 'Máximo de 16 CPFs permitidos para o Merkle tree.')
     }
 
+    // Validar CPFs
+    const invalidCpfs = cpfs.filter((cpf) => !isValidCpf(cpf))
+    if (invalidCpfs.length > 0) {
+      const validCpfs = cpfs.filter((cpf) => isValidCpf(cpf))
+      if (validCpfs.length === 0) {
+        // Nenhum válido: fecha janela e mostra erro
+        setVotersDialogOpen(false)
+        return showAdminModal(
+          'Erro',
+          `Nenhum CPF válido encontrado. Os seguintes são inválidos: ${invalidCpfs.join(', ')}`
+        )
+      }
+      // Alguns válidos: fecha janela e mostra modal com opções
+      setVotersDialogOpen(false)
+      showAdminModalJsx('CPFs inválidos detectados', (
+        <div className="admin-success-modal">
+          <p style={{ marginBottom: '12px' }}>Os seguintes CPFs são inválidos e serão ignorados:</p>
+          <code style={{ display: 'block', marginBottom: '16px', fontSize: '13px' }}>
+            {invalidCpfs.join(', ')}
+          </code>
+          <p style={{ marginBottom: '16px' }}>
+            Deseja prosseguir com os <strong>{validCpfs.length}</strong> CPFs válidos?
+          </p>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <button 
+              className="btn btn-ghost" 
+              onClick={() => {
+                setAdminModalVisible(false)
+                setVotersDialogOpen(true)
+              }}
+            >
+              Voltar e corrigir
+            </button>
+            <button 
+              className="btn btn-primary" 
+              onClick={() => {
+                setAdminModalVisible(false)
+                processValidVoters(validCpfs)
+              }}
+            >
+              Prosseguir
+            </button>
+          </div>
+        </div>
+      ))
+      return
+    }
+
+    await processValidVoters(cpfs)
+  }
+
+  const processValidVoters = async (validCpfs) => {
     setVotersSubmitting(true)
     try {
-      const commitments = await Promise.all(cpfs.map(computeCommitment))
+      const commitments = await Promise.all(validCpfs.map(computeCommitment))
       const { root } = await buildMerkleTree(commitments)
       const payload = { hashes: commitments, merkleRoot: root }
       const res = await registerVoters(electionAddress, payload)
       setVotersDialogOpen(false)
       setVotersCpfText('')
       setVotersCsvInfo(null)
+      await loadTotalVoters()
       showAdminModalJsx('Votantes registrados', (
         <div className="admin-success-modal">
           <div className="admin-success-row"><span>Eleitores registrados</span><strong>{commitments.length}</strong></div>
@@ -651,8 +718,7 @@ function AdminPage({ races, setRaces, electionAddress, electionDetails, setElect
         { label: 'BU (PDF)', onClick: handleGetBuPdf },
         { label: 'BU (JSON)', onClick: handleGetBuJson },
         { label: 'Zerésima', onClick: handleGetZeresima },
-        { label: 'RDV', onClick: handleGetRdv },
-        { label: 'Pending log', onClick: handleGetPendingLog }
+        { label: 'RDV', onClick: handleGetRdv }
       ]
     },
     {
@@ -679,6 +745,7 @@ function AdminPage({ races, setRaces, electionAddress, electionDetails, setElect
         electionAddress={electionAddress}
         backendRaces={backendRaces}
         backendCandidates={backendCandidates}
+        totalVoters={totalVoters}
       />
 
       <AdminModal

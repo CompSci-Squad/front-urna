@@ -4,8 +4,8 @@ export const ROLES = {
 }
 
 export const TEST_CREDENTIALS = {
-  voter: { cpf: '00000000000', password: '1234' },
-  admin: { cpf: '11111111111', password: '1234' }
+  voter: { cpf: '12345678909', password: '1234' },
+  admin: { cpf: '98765432100', password: '1234' }
 }
 
 export const SPECIAL_VOTES = {
