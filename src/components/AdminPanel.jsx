@@ -1,5 +1,5 @@
 import React from 'react'
-import { Vote, LayoutList, Users, Search, FileText, Settings, UserCircle } from 'lucide-react'
+import { Vote, LayoutList, Users, Search, FileText, Settings } from 'lucide-react'
 
 const GROUP_ICONS = {
   'Eleição': <Vote size={16} />,

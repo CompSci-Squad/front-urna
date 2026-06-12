@@ -1,8 +1,8 @@
 ﻿import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { ROLES, TEST_CREDENTIALS } from './utils/constants'
 import LoginScreen from './components/LoginScreen'
-import { listElections, getElection, setAdminKey, clearAdminKey, getVoterProof } from './services/apiService'
-import { computeCommitment, isValidCpf } from './utils/zk'
+import { listElections, getElection, setAdminKey, clearAdminKey } from './services/apiService'
+import { isValidCpf } from './utils/zk'
 
 const VotePage = lazy(() => import('./pages/VotePage'))
 const ResultsPage = lazy(() => import('./pages/ResultsPage'))
@@ -18,7 +18,6 @@ function App() {
   const [loginError, setLoginError] = useState('')
 
   const [races, setRaces] = useState([])
-  const [voterCounter, setVoterCounter] = useState(341)
   const [receipt, setReceipt] = useState(null)
   const [time, setTime] = useState(new Date())
 
@@ -84,11 +83,6 @@ function App() {
     loadElectionDetails()
   }, [electionAddress])
 
-  const formattedVoter = `000.${String(voterCounter).padStart(6, '0').slice(0, 3)}.${String(
-    voterCounter
-  )
-    .padStart(6, '0')
-    .slice(3)}`
 
   const isAdmin = user?.role === ROLES.ADMIN
   const isVoter = user?.role === ROLES.VOTER
@@ -124,6 +118,10 @@ function App() {
       } catch (e) {
         console.error('Failed to set admin key:', e)
       }
+      // Garantir que uma eleição esteja selecionada para o admin
+      if (!electionAddress && electionList.length > 0) {
+        setElectionAddress(electionList[0].address)
+      }
       setUser({ role: ROLES.ADMIN, cpf })
       setView('admin')
       return
@@ -157,7 +155,6 @@ function App() {
     setElectionAddress(null)
     setElectionDetails(null)
     setView('vote-picker')
-    setVoterCounter((prev) => prev + 1)
   }
 
   const handleVoterSelectElection = (addr) => {
@@ -243,7 +240,6 @@ function App() {
             setRaces={setRaces}
             electionAddress={electionAddress}
             electionDetails={electionDetails}
-            formattedVoter={formattedVoter}
             userCpf={user.cpf}
             onFinish={handleFinish}
           />

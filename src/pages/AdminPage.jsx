@@ -15,7 +15,6 @@ import {
   getBuJson,
   getZeresima,
   getRdv,
-  getPendingLog,
   getVoteReceiptPdf,
   getAdminState,
   getAdminVoters,
@@ -482,16 +481,6 @@ function AdminPage({ races, setRaces, electionAddress, electionDetails, setElect
       showAdminModal('Registro Digital de Voto (RDV)', JSON.stringify(data, null, 2))
     } catch (err) {
       showAdminModal('Erro ao buscar RDV', err.message || String(err))
-    }
-  }
-
-  const handleGetPendingLog = async () => {
-    if (!electionAddress) return showAdminModal('Erro', 'Selecione uma eleição primeiro.')
-    try {
-      const data = await getPendingLog(electionAddress)
-      showAdminModal('Pending Log', JSON.stringify(data, null, 2))
-    } catch (err) {
-      showAdminModal('Erro ao buscar pending log', err.message || String(err))
     }
   }
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Vote, ChevronRight, Users, LayoutList, CheckCircle2, FileText, X, ShieldCheck, ScrollText, Download, Receipt } from 'lucide-react'
+import { Vote, ChevronRight, Users, LayoutList, CheckCircle2, FileText, ShieldCheck, ScrollText, Download, Receipt } from 'lucide-react'
 import { listElections, getElection, getVoterProof, getZeresima, getRdv, getBuPdf, getVoteReceiptPdf } from '../services/apiService'
 import { computeCommitment, normalizeCpf } from '../utils/zk'
 

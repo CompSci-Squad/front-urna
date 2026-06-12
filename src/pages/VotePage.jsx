@@ -6,7 +6,7 @@ import VoteView from '../components/VotePage'
 import { castVote, getVoterProof } from '../services/apiService'
 import { computeCommitment, computeNullifier, buildVoteCircuitInput, generateVoteProof, normalizeCpf } from '../utils/zk'
 
-function VotePage({ races, setRaces, electionAddress, electionDetails, formattedVoter, userCpf, onFinish }) {
+function VotePage({ races, setRaces, electionAddress, electionDetails, userCpf, onFinish }) {
   const [raceIdx, setRaceIdx] = useState(0)
   const [ballot, setBallot] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
