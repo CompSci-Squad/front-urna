@@ -113,7 +113,7 @@ src/
 
 ## Painel Administrativo
 
-Acessível com CPF `11111111111` / senha `1234` (credenciais de teste).
+Acessível com CPF `98765432100` / senha `1234` (credenciais de teste).
 
 Permite:
 - Criar e gerenciar eleições
